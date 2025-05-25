@@ -45,14 +45,24 @@ pip install -r requirements.txt
 
 ### Quick Start
 
-1. Run the dashboard:
-```bash
-./run_dashboard.sh
-```
-Or manually:
-```bash
-python simple_dashboard.py
-```
+1. Run the dashboard using one of these methods:
+
+   a. Using the shell script:
+   ```bash
+   ./run_dashboard.sh
+   ```
+
+   b. Using Python directly with default settings:
+   ```bash
+   python simple_dashboard.py
+   ```
+
+   c. Using Python with explicit parameters:
+   ```bash
+   python simple_dashboard.py --data-dir ./dashboard_data --port 5000
+   ```
+   - `--data-dir`: Directory containing comparison data (default: ./dashboard_data)
+   - `--port`: Port number for the web server (default: 5000)
 
 2. Open your browser and navigate to:
 ```
