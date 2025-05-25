@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>API Comparison Details</h1>
+    
+    <div class="row mt-4">
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Summary</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Files Compared:</strong> {{ data.metadata.file_labels|join(" vs ") }}</p>
+                    <p><strong>Total Endpoints:</strong> {{ data.metadata.total_endpoints }}</p>
+                    <p><strong>Endpoints with Changes:</strong> {{ data.metadata.endpoints_with_changes }}</p>
+                    <p><strong>Comparison Time:</strong> {{ data.metadata.comparison_time }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Changes Overview</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="changesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <h5>Endpoints</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="filterEndpoints('all')">All</button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="filterEndpoints('changed')">Changed</button>
+                        <button class="btn btn-sm btn-outline-success" onclick="filterEndpoints('unchanged')">Unchanged</button>
+                        <button class="btn btn-sm btn-outline-info" onclick="filterEndpoints('added')">Added</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="filterEndpoints('removed')">Removed</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="endpointsTable">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Host</th>
+                                    <th>Path</th>
+                                    <th>Status</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, endpoint in data.endpoints.items() %}
+                                <tr class="endpoint-{{ endpoint.status }} {% if endpoint.present_in|length == 1 %}{% if endpoint.present_in[0] == data.metadata.file_labels[0] %}endpoint-removed{% else %}endpoint-added{% endif %}{% endif %}">
+                                    <td>{{ endpoint.method }}</td>
+                                    <td>{{ endpoint.host }}</td>
+                                    <td>{{ endpoint.path }}</td>
+                                    <td>
+                                        {% if endpoint.status == 'changed' %}
+                                            <span class="badge bg-warning">Changed</span>
+                                        {% elif endpoint.status == 'unchanged' %}
+                                            <span class="badge bg-success">Unchanged</span>
+                                        {% elif endpoint.present_in|length == 1 %}
+                                            {% if endpoint.present_in[0] == data.metadata.file_labels[0] %}
+                                                <span class="badge bg-danger">Removed</span>
+                                            {% else %}
+                                                <span class="badge bg-primary">Added</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if endpoint.status == 'changed' %}
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="showDetails('{{ key }}')">View Differences</button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for displaying differences -->
+    <div class="modal fade" id="differencesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="differencesModalLabel">API Differences</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="differencesModalBody">
+                    <!-- Differences will be displayed here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize chart data
+    const ctx = document.getElementById('changesChart').getContext('2d');
+    const changesChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Changed', 'Unchanged', 'Added', 'Removed'],
+            datasets: [{
+                data: [
+                    {{ data.summary.by_change_type.modified|length }},
+                    {{ data.metadata.total_endpoints - data.summary.by_change_type.modified|length - data.summary.by_change_type.added|length - data.summary.by_change_type.removed|length }},
+                    {{ data.summary.by_change_type.added|length }},
+                    {{ data.summary.by_change_type.removed|length }}
+                ],
+                backgroundColor: [
+                    '#ffc107',  // Changed - warning
+                    '#198754',  // Unchanged - success
+                    '#0d6efd',  // Added - primary
+                    '#dc3545'   // Removed - danger
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                }
+            }
+        }
+    });
+    
+    // Filter endpoints by type
+    function filterEndpoints(type) {
+        const table = document.getElementById('endpointsTable');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            
+            if (type === 'all') {
+                row.style.display = '';
+            } else if (type === 'changed' && row.classList.contains('endpoint-changed')) {
+                row.style.display = '';
+            } else if (type === 'unchanged' && row.classList.contains('endpoint-unchanged')) {
+                row.style.display = '';
+            } else if (type === 'added' && row.classList.contains('endpoint-added')) {
+                row.style.display = '';
+            } else if (type === 'removed' && row.classList.contains('endpoint-removed')) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    }
+    
+    // Show differences for an endpoint
+    function showDetails(endpointKey) {
+        const endpoint = {{ data.endpoints|tojson|safe }}[endpointKey];
+        const differences = endpoint.differences;
+        
+        // Debug logging
+        console.log('Showing details for endpoint:', endpointKey);
+        console.log('Full endpoint data:', endpoint);
+        console.log('Differences object:', differences);
+        
+        let html = `
+            <h6>${endpoint.method} ${endpoint.host}${endpoint.path}</h6>
+            <div class="alert alert-info mb-3">
+                <p class="mb-0"><strong>Status:</strong> ${endpoint.status}</p>
+            </div>`;
+        
+        if (differences) {
+            // Special handling for instances since they contain nested differences
+            if (differences.instances) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">Instance Comparisons</h6>
+                        </div>
+                        <div class="card-body">`;
+                
+                // Process each instance comparison
+                for (const [instanceKey, instanceData] of Object.entries(differences.instances)) {
+                    html += `
+                        <div class="card mb-3">
+                            <div class="card-header bg-info">
+                                <h6 class="mb-0">Instance: ${instanceKey}</h6>
+                            </div>
+                            <div class="card-body">`;
+                    
+                    // Show instance details
+                    if (instanceData.instance_details) {
+                        const instances = Object.entries(instanceData.instance_details);
+                        html += `
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">${instances[0][0]}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-unstyled mb-0">
+                                                <li><strong>Available:</strong> ${instances[0][1].available ? '✅' : '❌'}</li>
+                                                <li><strong>Index:</strong> ${instances[0][1].index}</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">${instances[1][0]}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-unstyled mb-0">
+                                                <li><strong>Available:</strong> ${instances[1][1].available ? '✅' : '❌'}</li>
+                                                <li><strong>Index:</strong> ${instances[1][1].index}</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }
+
+                    // Show note if present (no differences)
+                    if (instanceData.note) {
+                        html += `
+                            <div class="alert alert-success mb-3">
+                                <p class="mb-0">✅ ${instanceData.note}</p>
+                            </div>`;
+                    }
+
+                    // Show request differences if present
+                    if (instanceData.request_differences) {
+                        const reqDiff = instanceData.request_differences;
+                        
+                        if (reqDiff['request.body']) {
+                            const bodyDiff = reqDiff['request.body'];
+                            html += `
+                                <div class="card mb-3">
+                                    <div class="card-header bg-warning">
+                                        <h6 class="mb-0">Request Body Differences</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="alert alert-info mb-3">
+                                            <p class="mb-0"><strong>Type:</strong> ${bodyDiff.type}</p>
+                                        </div>
+                                        <div class="row">`;
+                            
+                            // Show values from each file
+                            const files = Object.entries(bodyDiff)
+                                .filter(([k]) => k.endsWith('_value'))
+                                .map(([k, v]) => ({
+                                    name: k.replace('_value', ''),
+                                    value: v
+                                }));
+                            
+                            for (const file of files) {
+                                html += `
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0">${file.name}</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <pre class="mb-0"><code>${JSON.stringify(file.value, null, 2) || '(empty)'}</code></pre>
+                                            </div>
+                                        </div>
+                                    </div>`;
+                            }
+                            
+                            html += `</div></div></div>`;
+                        }
+                    }
+
+                    html += `</div></div>`;
+                }
+                
+                html += `</div></div>`;
+            }
+            
+            // Process other top-level differences that aren't empty
+            const otherDiffs = Object.entries(differences)
+                .filter(([key, value]) => 
+                    key !== 'instances' && 
+                    value && 
+                    typeof value === 'object' && 
+                    Object.keys(value).length > 0
+                );
+            
+            if (otherDiffs.length > 0) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning">
+                            <h6 class="mb-0">Other Differences</h6>
+                        </div>
+                        <div class="card-body">`;
+                
+                for (const [key, value] of otherDiffs) {
+                    html += `
+                        <div class="mb-3">
+                            <h6>${key.charAt(0).toUpperCase() + key.slice(1)}</h6>
+                            <pre class="bg-light p-2"><code>${JSON.stringify(value, null, 2)}</code></pre>
+                        </div>`;
+                }
+                
+                html += `</div></div>`;
+            }
+        } else {
+            html += `
+                <div class="alert alert-warning">
+                    <p class="mb-0">No differences data available.</p>
+                </div>`;
+        }
+        
+        document.getElementById('differencesModalBody').innerHTML = html;
+        new bootstrap.Modal(document.getElementById('differencesModal')).show();
+    }
+</script>
+{% endblock %}
