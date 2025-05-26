@@ -21,6 +21,7 @@
         .card-header {
             background-color: #fff;
             border-bottom: 1px solid rgba(0,0,0,.125);
+            padding: 0.75rem 1rem;
         }
         .table {
             margin-bottom: 0;
@@ -28,6 +29,30 @@
         .table th {
             font-weight: 600;
             color: #495057;
+            background-color: #f8f9fa;
+            padding: 0.75rem;
+            white-space: nowrap;
+        }
+        .table td {
+            padding: 0.75rem;
+            vertical-align: top;
+        }
+        .table td pre {
+            max-height: 150px;
+            overflow-y: auto;
+            margin: 0;
+            background-color: transparent;
+            padding: 0;
+            border: none;
+        }
+        .table td code {
+            color: #495057;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            display: block;
+            max-height: 150px;
+            overflow-y: auto;
         }
         .endpoint-changed { 
             background-color: #fff3cd !important;
@@ -45,18 +70,8 @@
             background-color: #f8d7da !important;
             border-left: 4px solid #dc3545;
         }
-        pre {
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            padding: 1rem;
-            margin-bottom: 0;
-        }
-        code {
-            color: #495057;
-            font-size: 0.875rem;
-        }
         .modal-dialog {
-            max-width: 800px;
+            max-width: 1000px;
         }
         .modal-body {
             padding: 0;
@@ -73,6 +88,34 @@
         .badge {
             font-weight: 500;
             padding: 0.5em 0.75em;
+        }
+        .bg-warning.bg-opacity-10 {
+            background-color: rgba(255, 193, 7, 0.1) !important;
+        }
+        .endpoint-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            padding: 0.75rem 1rem;
+        }
+        .bi-circle-fill {
+            font-size: 0.5rem;
+            vertical-align: middle;
+        }
+        /* Custom scrollbar for better UX */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
     </style>
 </head>

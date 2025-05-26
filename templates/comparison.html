@@ -39,8 +39,6 @@
                         <button class="btn btn-sm btn-outline-primary" onclick="filterEndpoints('all')">All</button>
                         <button class="btn btn-sm btn-outline-warning" onclick="filterEndpoints('changed')">Changed</button>
                         <button class="btn btn-sm btn-outline-success" onclick="filterEndpoints('unchanged')">Unchanged</button>
-                        <button class="btn btn-sm btn-outline-info" onclick="filterEndpoints('added')">Added</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="filterEndpoints('removed')">Removed</button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -57,25 +55,19 @@
                             </thead>
                             <tbody>
                                 {% for key, endpoint in data.endpoints.items() %}
-                                <tr class="endpoint-{{ endpoint.status }} {% if endpoint.present_in|length == 1 %}{% if endpoint.present_in[0] == data.metadata.file_labels[0] %}endpoint-removed{% else %}endpoint-added{% endif %}{% endif %}">
+                                <tr class="{% if endpoint.differences and endpoint.differences|length > 0 %}endpoint-changed{% else %}endpoint-unchanged{% endif %}">
                                     <td>{{ endpoint.method }}</td>
                                     <td>{{ endpoint.host }}</td>
                                     <td>{{ endpoint.path }}</td>
                                     <td>
-                                        {% if endpoint.status == 'changed' %}
+                                        {% if endpoint.differences and endpoint.differences|length > 0 %}
                                             <span class="badge bg-warning">Changed</span>
-                                        {% elif endpoint.status == 'unchanged' %}
+                                        {% else %}
                                             <span class="badge bg-success">Unchanged</span>
-                                        {% elif endpoint.present_in|length == 1 %}
-                                            {% if endpoint.present_in[0] == data.metadata.file_labels[0] %}
-                                                <span class="badge bg-danger">Removed</span>
-                                            {% else %}
-                                                <span class="badge bg-primary">Added</span>
-                                            {% endif %}
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if endpoint.status == 'changed' %}
+                                        {% if endpoint.differences and endpoint.differences|length > 0 %}
                                             <button class="btn btn-sm btn-outline-secondary" onclick="showDetails('{{ key }}')">View Differences</button>
                                         {% endif %}
                                     </td>
@@ -115,19 +107,15 @@
     const changesChart = new Chart(ctx, {
         type: 'pie',
         data: {
-            labels: ['Changed', 'Unchanged', 'Added', 'Removed'],
+            labels: ['Changed', 'Unchanged'],
             datasets: [{
                 data: [
                     {{ data.summary.by_change_type.modified|length }},
-                    {{ data.metadata.total_endpoints - data.summary.by_change_type.modified|length - data.summary.by_change_type.added|length - data.summary.by_change_type.removed|length }},
-                    {{ data.summary.by_change_type.added|length }},
-                    {{ data.summary.by_change_type.removed|length }}
+                    {{ data.metadata.total_endpoints - data.summary.by_change_type.modified|length }}
                 ],
                 backgroundColor: [
                     '#ffc107',  // Changed - warning
                     '#198754',  // Unchanged - success
-                    '#0d6efd',  // Added - primary
-                    '#dc3545'   // Removed - danger
                 ]
             }]
         },
@@ -148,19 +136,22 @@
         
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
+            row.style.display = 'none'; // Hide all rows by default
             
-            if (type === 'all') {
-                row.style.display = '';
-            } else if (type === 'changed' && row.classList.contains('endpoint-changed')) {
-                row.style.display = '';
-            } else if (type === 'unchanged' && row.classList.contains('endpoint-unchanged')) {
-                row.style.display = '';
-            } else if (type === 'added' && row.classList.contains('endpoint-added')) {
-                row.style.display = '';
-            } else if (type === 'removed' && row.classList.contains('endpoint-removed')) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
+            switch(type) {
+                case 'all':
+                    row.style.display = '';
+                    break;
+                case 'changed':
+                    if (row.classList.contains('endpoint-changed')) {
+                        row.style.display = '';
+                    }
+                    break;
+                case 'unchanged':
+                    if (row.classList.contains('endpoint-unchanged')) {
+                        row.style.display = '';
+                    }
+                    break;
             }
         }
     }
@@ -178,7 +169,6 @@
                         <span class="badge bg-secondary me-2">${endpoint.method}</span>
                         <span class="text-muted">${endpoint.host}</span>${endpoint.path}
                     </h5>
-                    <span class="badge bg-warning">Changed</span>
                 </div>
             </div>`;
         
@@ -186,35 +176,36 @@
             // Status codes
             if (differences.status_codes) {
                 html += `
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">Status Codes</h6>
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="bi bi-circle-fill text-warning me-2"></i>
+                                Status Code Changes
+                            </h6>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="ps-3">Version</th>
-                                            <th class="ps-3">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>`;
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 30%">Version</th>
+                                        <th>Status Code</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
                 
                 for (const [key, value] of Object.entries(differences.status_codes)) {
                     if (key !== 'type') {
                         html += `
                             <tr>
-                                <td class="ps-3">${key}</td>
-                                <td class="bg-warning bg-opacity-10 ps-3"><code>${value}</code></td>
+                                <td class="fw-bold">${key}</td>
+                                <td class="bg-warning bg-opacity-10">${value}</td>
                             </tr>`;
                     }
                 }
                 
                 html += `
-                                    </tbody>
-                                </table>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     </div>`;
             }
@@ -222,21 +213,23 @@
             // Response differences
             if (differences.response && Object.keys(differences.response).length > 0) {
                 html += `
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">Response Differences</h6>
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="bi bi-circle-fill text-primary me-2"></i>
+                                Response Differences
+                            </h6>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="ps-3">Field</th>
-                                            <th class="ps-3">Version</th>
-                                            <th class="ps-3">Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>`;
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 20%">Field</th>
+                                        <th style="width: 20%">Version</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
                 
                 for (const [field, diff] of Object.entries(differences.response)) {
                     if (diff && typeof diff === 'object' && diff.type === 'value_mismatch') {
@@ -245,9 +238,9 @@
                             if (version !== 'type') {
                                 html += `
                                     <tr>
-                                        ${isFirst ? `<td class="ps-3" rowspan="2"><code>${field}</code></td>` : ''}
-                                        <td class="ps-3">${version}</td>
-                                        <td class="bg-warning bg-opacity-10 ps-3">
+                                        ${isFirst ? `<td class="fw-bold" rowspan="2">${field}</td>` : ''}
+                                        <td class="fw-bold">${version}</td>
+                                        <td class="bg-warning bg-opacity-10">
                                             <pre class="mb-0"><code>${JSON.stringify(value, null, 2)}</code></pre>
                                         </td>
                                     </tr>`;
@@ -258,9 +251,8 @@
                 }
                 
                 html += `
-                                    </tbody>
-                                </table>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     </div>`;
             }
@@ -268,21 +260,23 @@
             // Header differences
             if (differences.headers && Object.keys(differences.headers).length > 0) {
                 html += `
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">Header Differences</h6>
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="bi bi-circle-fill text-success me-2"></i>
+                                Header Differences
+                            </h6>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="ps-3">Header</th>
-                                            <th class="ps-3">Version</th>
-                                            <th class="ps-3">Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>`;
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 20%">Header</th>
+                                        <th style="width: 20%">Version</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
                 
                 for (const [header, diff] of Object.entries(differences.headers)) {
                     let isFirst = true;
@@ -290,9 +284,9 @@
                         if (version !== 'type') {
                             html += `
                                 <tr>
-                                    ${isFirst ? `<td class="ps-3" rowspan="2"><code>${header}</code></td>` : ''}
-                                    <td class="ps-3">${version}</td>
-                                    <td class="bg-warning bg-opacity-10 ps-3"><code>${value}</code></td>
+                                    ${isFirst ? `<td class="fw-bold" rowspan="2">${header}</td>` : ''}
+                                    <td class="fw-bold">${version}</td>
+                                    <td class="bg-warning bg-opacity-10">${value}</td>
                                 </tr>`;
                             isFirst = false;
                         }
@@ -300,9 +294,8 @@
                 }
                 
                 html += `
-                                    </tbody>
-                                </table>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     </div>`;
             }
@@ -310,21 +303,23 @@
             // Request differences
             if (differences.request && Object.keys(differences.request).length > 0) {
                 html += `
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">Request Differences</h6>
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="bi bi-circle-fill text-danger me-2"></i>
+                                Request Differences
+                            </h6>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="ps-3">Field</th>
-                                            <th class="ps-3">Version</th>
-                                            <th class="ps-3">Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>`;
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 20%">Field</th>
+                                        <th style="width: 20%">Version</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
                 
                 for (const [field, diff] of Object.entries(differences.request)) {
                     if (diff && typeof diff === 'object' && diff.type === 'value_mismatch') {
@@ -333,9 +328,9 @@
                             if (version !== 'type') {
                                 html += `
                                     <tr>
-                                        ${isFirst ? `<td class="ps-3" rowspan="2"><code>${field}</code></td>` : ''}
-                                        <td class="ps-3">${version}</td>
-                                        <td class="bg-warning bg-opacity-10 ps-3">
+                                        ${isFirst ? `<td class="fw-bold" rowspan="2">${field}</td>` : ''}
+                                        <td class="fw-bold">${version}</td>
+                                        <td class="bg-warning bg-opacity-10">
                                             <pre class="mb-0"><code>${JSON.stringify(value, null, 2)}</code></pre>
                                         </td>
                                     </tr>`;
@@ -346,51 +341,8 @@
                 }
                 
                 html += `
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>`;
-            }
-            
-            // Parameter differences
-            if (differences.parameters && Object.keys(differences.parameters).length > 0) {
-                html += `
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">Parameter Differences</h6>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="ps-3">Parameter</th>
-                                            <th class="ps-3">Version</th>
-                                            <th class="ps-3">Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>`;
-                
-                for (const [param, diff] of Object.entries(differences.parameters)) {
-                    let isFirst = true;
-                    for (const [version, value] of Object.entries(diff)) {
-                        if (version !== 'type') {
-                            html += `
-                                <tr>
-                                    ${isFirst ? `<td class="ps-3" rowspan="2"><code>${param}</code></td>` : ''}
-                                    <td class="ps-3">${version}</td>
-                                    <td class="bg-warning bg-opacity-10 ps-3"><code>${value}</code></td>
-                                </tr>`;
-                            isFirst = false;
-                        }
-                    }
-                }
-                
-                html += `
-                                    </tbody>
-                                </table>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     </div>`;
             }
