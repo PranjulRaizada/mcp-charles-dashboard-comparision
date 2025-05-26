@@ -14,16 +14,45 @@ DATA_DIR = "./dashboard_data"
 @app.route('/')
 def index():
     """Show the main dashboard page"""
-    # Load the index file
+    # Load or create the index file
     index_file = os.path.join(DATA_DIR, "index.json")
-    if not os.path.exists(index_file):
-        return render_template('error.html', message="No comparison data found. Run dashboard_ready_comparison.py first.")
+    index_data = {"comparisons": []}
     
-    with open(index_file, 'r') as f:
-        try:
-            index_data = json.load(f)
-        except json.JSONDecodeError:
-            return render_template('error.html', message="Invalid index file format.")
+    # Scan the data directory for all JSON files
+    for filename in os.listdir(DATA_DIR):
+        if filename.endswith('.json') and filename != 'index.json':
+            file_path = os.path.join(DATA_DIR, filename)
+            
+            # Read the comparison file
+            try:
+                with open(file_path, 'r') as f:
+                    comparison_data = json.load(f)
+                    
+                # Extract metadata
+                metadata = comparison_data.get('metadata', {})
+                file_labels = metadata.get('file_labels', [])
+                
+                # Create entry for index
+                entry = {
+                    "file": filename,
+                    "timestamp": metadata.get('comparison_time', datetime.now().isoformat()),
+                    "file_labels": file_labels,
+                    "metadata": metadata.get('custom_metadata', {}),
+                    "total_endpoints": metadata.get('total_endpoints', 0),
+                    "endpoints_with_changes": metadata.get('endpoints_with_changes', 0)
+                }
+                
+                index_data["comparisons"].append(entry)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error processing {filename}: {str(e)}")
+                continue
+    
+    # Sort by timestamp (newest first)
+    index_data["comparisons"].sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    # Save the updated index
+    with open(index_file, 'w') as f:
+        json.dump(index_data, f, indent=2)
     
     return render_template('index.html', comparisons=index_data["comparisons"])
 

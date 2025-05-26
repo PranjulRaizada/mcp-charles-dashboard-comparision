@@ -53,9 +53,23 @@ def main():
     print(f"Using labels: {file_labels}")
     print(f"Output directory: {args.output_dir}")
     
+    # Load and parse the files
+    file_data = []
+    for file_path in file_paths:
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                file_data.append({
+                    "data": data,
+                    "file_label": os.path.basename(file_path)
+                })
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error reading file {file_path}: {str(e)}")
+            sys.exit(1)
+    
     # Run the comparison
     result = compare_api_structures(
-        file_paths=file_paths,
+        file_paths=file_data,
         output_dir=args.output_dir,
         comparison_level=args.comparison_level
     )
@@ -104,23 +118,24 @@ def process_for_dashboard(comparison_result, file_labels, metadata):
         }
     }
     
-    # Process detailed results if available
+    # Process detailed results
     detailed_results = comparison_result.get("detailed_results", {})
     for endpoint_key, endpoint_data in detailed_results.items():
-        # Dashboard-friendly endpoint format
+        # Create endpoint entry
         endpoint_summary = {
-            "method": endpoint_data.get("method"),
-            "host": endpoint_data.get("host"),
-            "path": endpoint_data.get("path"),
+            "method": endpoint_data.get("method", ""),
+            "host": endpoint_data.get("host", ""),
+            "path": endpoint_data.get("path", ""),
             "status": "changed" if endpoint_data.get("has_changes") else "unchanged",
             "present_in": endpoint_data.get("present_in", []),
-            "missing_in": endpoint_data.get("missing_in", [])
+            "missing_in": endpoint_data.get("missing_in", []),
+            "differences": endpoint_data.get("differences", {})
         }
         
         # Add to endpoints collection
         dashboard_data["endpoints"][endpoint_key] = endpoint_summary
         
-        # Categorize by host
+        # Update summary statistics
         host = endpoint_data.get("host", "unknown")
         if host not in dashboard_data["summary"]["by_host"]:
             dashboard_data["summary"]["by_host"][host] = {
@@ -138,18 +153,13 @@ def process_for_dashboard(comparison_result, file_labels, metadata):
             dashboard_data["summary"]["by_change_type"]["modified"].append(endpoint_key)
         else:
             dashboard_data["summary"]["by_host"][host]["unchanged"] += 1
-            
+        
         # Categorize added/removed endpoints
         if len(endpoint_data.get("present_in", [])) == 1:
-            if endpoint_data.get("present_in")[0] == file_labels[0]:
+            if endpoint_data["present_in"][0] == file_labels[0]:
                 dashboard_data["summary"]["by_change_type"]["removed"].append(endpoint_key)
             else:
                 dashboard_data["summary"]["by_change_type"]["added"].append(endpoint_key)
-    
-    # Add differences details for endpoints with changes
-    for endpoint_key, endpoint_data in detailed_results.items():
-        if endpoint_data.get("has_changes"):
-            dashboard_data["endpoints"][endpoint_key]["differences"] = endpoint_data.get("differences", {})
     
     return dashboard_data
 
