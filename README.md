@@ -1,135 +1,133 @@
-# Charles Proxy Dashboard Comparison Tool
+# API Comparison Dashboard
 
-A web-based dashboard tool for comparing Charles Proxy logs and visualizing API differences between multiple captures.
+A powerful tool for comparing API responses across different versions or environments. This dashboard helps visualize and analyze differences in API endpoints, making it easier to spot changes, regressions, or improvements.
 
 ## Features
 
-- Compare multiple Charles Proxy log files (.chls or .chlsj)
-- Visual dashboard showing differences in:
-  - Request bodies
-  - Headers
-  - Parameters
-  - Response data
+- 📊 Visual comparison of API endpoints
+- 🔍 Detailed difference analysis for:
   - Status codes
-- Instance-based comparison for repeated API calls
-- Interactive filtering and sorting of endpoints
-- Detailed difference visualization with side-by-side comparison
-- Summary statistics and charts
+  - Request parameters
+  - Response bodies
+  - Headers
+  - Query parameters
+- 📈 Summary statistics and charts
+- 🎯 Filter endpoints by change type (Added, Removed, Modified)
+- 💡 Intuitive UI with clear difference highlighting
+- 📱 Responsive design for all devices
 
-## Prerequisites
+## System Architecture
 
-- Python 3.7 or higher
-- Flask
-- Charles Proxy logs in .chls or .chlsj format
+```mermaid
+graph TD
+    A[Charles Proxy Logs] --> B[Log Parser]
+    B --> C[Comparison Engine]
+    C --> D[Dashboard Data Generator]
+    D --> E[JSON Storage]
+    E --> F[Flask Web Server]
+    F --> G[Web Dashboard]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#dfd,stroke:#333,stroke-width:2px
+    style D fill:#ffd,stroke:#333,stroke-width:2px
+    style E fill:#ddd,stroke:#333,stroke-width:2px
+    style F fill:#fdb,stroke:#333,stroke-width:2px
+    style G fill:#dff,stroke:#333,stroke-width:2px
+```
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/PranjulRaizada/mcp-charles-dashboard-comparision.git
-cd mcp-charles-dashboard-comparision
+git clone <repository-url>
+cd api-comparison-dashboard
 ```
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Usage
 
-### Quick Start
+### 1. Generate Comparison Data
 
-1. Run the dashboard using one of these methods:
+Use the `dashboard_ready_comparison.py` script to generate comparison data:
 
-   a. Using the shell script:
-   ```bash
-   ./run_dashboard.sh
-   ```
+```bash
+python dashboard_ready_comparison.py \
+  --file_paths '["path/to/first.json", "path/to/second.json"]' \
+  --output_dir "./dashboard_data" \
+  --comparison_level "comprehensive"
+```
 
-   b. Using Python directly with default settings:
-   ```bash
-   python simple_dashboard.py
-   ```
+Parameters:
+- `file_paths`: JSON array of paths to Charles log files to compare
+- `output_dir`: Directory to save the comparison results (default: "./dashboard_data")
+- `comparison_level`: Level of detail for comparison (choices: "basic", "detailed", "comprehensive")
+- `metadata`: Optional JSON string of metadata to include
 
-   c. Using Python with explicit parameters:
-   ```bash
-   python simple_dashboard.py --data-dir ./dashboard_data --port 5000
-   ```
-   - `--data-dir`: Directory containing comparison data (default: ./dashboard_data)
-   - `--port`: Port number for the web server (default: 5000)
+### 2. Start the Dashboard
 
-2. Open your browser and navigate to:
+Run the Flask server:
+
+```bash
+python simple_dashboard.py --port 5000 --data-dir "./dashboard_data"
+```
+
+Parameters:
+- `port`: Port to run the dashboard on (default: 5000)
+- `data-dir`: Directory containing comparison data (default: "./dashboard_data")
+
+### 3. View the Dashboard
+
+Open your browser and navigate to:
 ```
 http://localhost:5000
 ```
 
-### Comparing Log Files
+## Data Flow
 
-1. Prepare your Charles log files (.chls or .chlsj format)
+1. **Log Collection**
+   - Charles Proxy captures API traffic
+   - Logs are exported as JSON files
 
-2. Generate a dashboard-ready comparison:
-```bash
-python dashboard_ready_comparison.py --file_paths '["file1.chlsj", "file2.chlsj"]' --output_dir "./dashboard_data"
-```
+2. **Comparison Generation**
+   - `dashboard_ready_comparison.py` processes the log files
+   - Generates structured comparison data
+   - Saves results in the dashboard data directory
 
-3. View the comparison in the dashboard by clicking on the comparison entry
+3. **Dashboard Presentation**
+   - Flask server loads comparison data
+   - Web interface displays differences
+   - Interactive filtering and detailed views
 
-### Command Line Options
-
-#### Dashboard Server
-- `--port`: Specify the port number (default: 5000)
-- `--data-dir`: Specify the data directory (default: ./dashboard_data)
-
-#### Comparison Generator
-- `--file_paths`: JSON array of file paths to compare
-- `--output_dir`: Directory to save comparison results
-- `--comparison_level`: Level of detail (basic, detailed, comprehensive)
-- `--metadata`: Additional metadata as JSON string
-
-## Dashboard Features
-
-### Main Dashboard
-- List of all comparisons
-- Quick summary statistics
-- Filtering and sorting options
-
-### Comparison View
-- Endpoint list with status indicators
-- Pie chart showing change distribution
-- Detailed difference view for each endpoint
-- Instance-based comparison for repeated calls
-- Side-by-side request/response comparison
-
-## Project Structure
+## File Structure
 
 ```
-mcp-charles-dashboard-comparision/
-├── dashboard_ready_comparison.py  # Comparison generator
-├── simple_dashboard.py           # Flask dashboard server
-├── server.py                    # Core comparison logic
-├── requirements.txt             # Python dependencies
-├── run_dashboard.sh            # Quick start script
-├── templates/                  # HTML templates
-│   ├── base.html
-│   ├── comparison.html
-│   ├── error.html
-│   └── index.html
-└── dashboard_data/            # Generated comparison data
+.
+├── dashboard_ready_comparison.py   # Comparison generator
+├── server.py                      # API comparison engine
+├── simple_dashboard.py            # Flask web server
+├── templates/                     # HTML templates
+│   ├── base.html                 # Base template with styling
+│   ├── comparison.html           # Comparison view template
+│   ├── index.html               # Dashboard index
+│   └── error.html               # Error page
+├── dashboard_data/               # Comparison results
+│   ├── index.json               # Index of comparisons
+│   └── *.json                   # Individual comparison files
+└── README.md                     # This file
 ```
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
